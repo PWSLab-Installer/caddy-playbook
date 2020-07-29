@@ -1,0 +1,73 @@
+- hosts: localhost
+  connection: local
+  vars:
+      
+      - version: 0.11.91
+      - mysql_databases: 
+        - name: gogs
+      - mysql_users: 
+        - name: gogs
+          password: gogs
+
+  tasks:
+    
+    -   name: Check the version of CentOS
+        command: hostnamectl
+        register: os_check
+        ignore_errors: yes
+
+    -   name: Enable repo - Ubuntu
+        shell: echo "deb [trusted=yes] https://apt.fury.io/caddy/ /" | sudo tee -a /etc/apt/sources.list.d/caddy-fury.list
+        when: 
+            - os_check.stdout | regex_search("Ubuntu")
+
+    -   name: Install Caddy - Ubuntu
+        apt:
+            name: caddy
+            update_cache: yes
+            state: present
+        when: 
+            - os_check.stdout | regex_search("Ubuntu")
+
+    -   name: Enable Copr - CentOS 8
+        shell: dnf install 'dnf-command(copr)' -y
+        when: 
+            - os_check.stdout | regex_search("CentOS Linux 8")
+
+    -   name: Enable Caddy repo - CentOS 8
+        shell: dnf copr enable @caddy/caddy -y
+        when: 
+            - os_check.stdout | regex_search("CentOS Linux 8")
+
+    -   name: Install Caddy - CentOS 8
+        dnf:
+            name: caddy
+            state: present
+        when: 
+            - os_check.stdout | regex_search("CentOS Linux 8")
+
+    -   name: Install Copr repo - CentOS 7
+        yum:
+            name: yum-plugin-copr
+            state: present
+        when: 
+            - os_check.stdout | regex_search("CentOS Linux 7")
+
+    -   name: Enable Caddy repo - CentOS 7
+        shell: yum copr enable @caddy/caddy -y
+        when: 
+            - os_check.stdout | regex_search("CentOS Linux 7")
+
+    -   name: Install Caddy - CentOS 7
+        yum:
+            name: caddy
+            state: present
+        when: 
+            - os_check.stdout | regex_search("CentOS Linux 7")
+
+    -   name: Initiate Caddy Service
+        systemd:
+            state: started
+            daemon_reload: yes
+            enabled: yes
+            name: caddy
